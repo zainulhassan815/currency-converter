@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "916737111212",
+    "firebase_url": "https://currency-converter-b0c1f-default-rtdb.firebaseio.com",
+    "project_id": "currency-converter-b0c1f",
+    "storage_bucket": "currency-converter-b0c1f.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:916737111212:android:0ea738dd8aca9891a31b09",
+        "android_client_info": {
+          "package_name": "org.dreamerslab.currencyconverter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDpKNvpYQGPDhUyFy5xQNZQJzlsuwbGi90"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
