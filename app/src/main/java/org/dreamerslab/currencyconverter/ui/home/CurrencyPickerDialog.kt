@@ -10,11 +10,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +38,6 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.mapLatest
-import kotlinx.coroutines.withContext
 import org.dreamerslab.currencyconverter.data.models.Currency
 import org.dreamerslab.currencyconverter.ui.components.CurrencyFlag
 import org.dreamerslab.currencyconverter.ui.styles.CurrencyConverterTheme
@@ -95,10 +97,36 @@ private fun CurrencyPickerContent(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             stickyHeader {
-                TextField(
-                    value = query,
-                    onValueChange = { query = it }
-                )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surface
+                ) {
+                    TextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        shape = RoundedCornerShape(4.dp),
+                        colors = TextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(5.dp),
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(5.dp),
+                            unfocusedIndicatorColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                        ),
+                        placeholder = {
+                            Text(
+                                text = "Search",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search"
+                            )
+                        },
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
             }
 
             items(
