@@ -81,7 +81,8 @@ private fun CurrencyPickerContent(
             .distinctUntilChanged()
             .mapLatest {
                 currencies.filter { currency ->
-                    currency.name.contains(it, ignoreCase = true) || currency.code.contains(it, ignoreCase = true)
+                    currency.name.contains(it, ignoreCase = true) ||
+                            currency.code.contains(it, ignoreCase = true)
                 }
             }
             .flowOn(Dispatchers.IO)
@@ -131,6 +132,7 @@ private fun CurrencyPickerContent(
 
             items(
                 items = filteredCurrencies,
+                key = { it.code.hashCode() }
             ) {
                 CurrencyCard(
                     currency = it,
@@ -169,13 +171,15 @@ private fun CurrencyCard(
             Text(
                 text = currency.name,
                 style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.onSurface
             )
 
             if (selected) {
                 Icon(
                     imageVector = Icons.Default.Check,
-                    contentDescription = "Selected"
+                    contentDescription = "Selected",
+                    tint = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
@@ -189,6 +193,18 @@ private fun CurrencyCardPreview() {
         CurrencyCard(
             currency = Currency(name = "Pakistani Rupee", code = "PKR", symbol = "Rs"),
             onClick = {}
+        )
+    }
+}
+
+@MultiThemePreview
+@Composable
+private fun CurrencyCardSelectedPreview() {
+    CurrencyConverterTheme {
+        CurrencyCard(
+            currency = Currency(name = "Pakistani Rupee", code = "PKR", symbol = "Rs"),
+            onClick = {},
+            selected = true
         )
     }
 }
