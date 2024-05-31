@@ -5,6 +5,7 @@ import androidx.core.text.isDigitsOnly
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -13,9 +14,12 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.dreamerslab.currencyconverter.data.dao.FavoriteCurrenciesDao
 import org.dreamerslab.currencyconverter.data.models.Currency
 import org.dreamerslab.currencyconverter.data.models.ExchangeRate
 import org.dreamerslab.currencyconverter.data.repository.ExchangeRatesRepository
+import org.dreamerslab.currencyconverter.util.AppDispatchers
 import javax.inject.Inject
 import kotlin.math.floor
 
@@ -49,13 +53,16 @@ sealed interface HomeScreenState {
     data object Loading : HomeScreenState
     data class Success(
         val currencies: List<Currency>,
-        val exchangeRates: List<ExchangeRate>
+        val exchangeRates: List<ExchangeRate>,
+        val favorites: List<Currency>
     ) : HomeScreenState
 }
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val repository: ExchangeRatesRepository
+    private val repository: ExchangeRatesRepository,
+    private val favoriteCurrenciesDao: FavoriteCurrenciesDao,
+    private val dispatchers: AppDispatchers
 ) : ViewModel() {
 
     private val _formState: MutableStateFlow<FormState> = MutableStateFlow(
@@ -68,11 +75,13 @@ class HomeViewModel @Inject constructor(
 
     val state = combine(
         repository.supportedCountriesFlow,
-        repository.exchangeRatesFlow
-    ) { currencies, exchangeRates ->
+        repository.exchangeRatesFlow,
+        favoriteCurrenciesDao.getAll()
+    ) { currencies, exchangeRates, favorites ->
         HomeScreenState.Success(
             currencies = currencies,
-            exchangeRates = exchangeRates
+            exchangeRates = exchangeRates,
+            favorites = favorites
         )
     }.stateIn(
         scope = viewModelScope,
@@ -108,9 +117,26 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun onDeleteFavorite(currency: Currency) {
+        viewModelScope.launch {
+            withContext(dispatchers.io) {
+                favoriteCurrenciesDao.delete(currency)
+            }
+        }
+    }
+
+    fun onAddFavorite(currency: Currency) {
+        viewModelScope.launch {
+            withContext(dispatchers.io) {
+                favoriteCurrenciesDao.insert(currency)
+            }
+        }
+    }
+
     private fun calculateToAmount() {
         val stateValue = state.value
-        val exchangeRates = if (stateValue is HomeScreenState.Success) stateValue.exchangeRates else return
+        val exchangeRates =
+            if (stateValue is HomeScreenState.Success) stateValue.exchangeRates else return
         val formState = formState.value
 
         if (formState.fromAmount.isBlank()) {
@@ -122,13 +148,17 @@ class HomeViewModel @Inject constructor(
 
         val amount = when {
             formState.fromCurrency.code != "USD" -> {
-                val usdRate = exchangeRates.find { it.targetCurrency.code == formState.fromCurrency.code }?.rate ?: return
+                val usdRate =
+                    exchangeRates.find { it.targetCurrency.code == formState.fromCurrency.code }?.rate
+                        ?: return
                 formState.fromAmount.toDouble() / usdRate
             }
+
             else -> formState.fromAmount.toDouble()
         }
 
-        val rate = exchangeRates.find { it.targetCurrency.code == formState.toCurrency.code }?.rate ?: return
+        val rate = exchangeRates.find { it.targetCurrency.code == formState.toCurrency.code }?.rate
+            ?: return
         val resultAmount = amount * rate
         val roundedResult = floor(resultAmount * 100) / 100
 
@@ -141,7 +171,8 @@ class HomeViewModel @Inject constructor(
 
     private fun calculateFromAmount() {
         val stateValue = state.value
-        val exchangeRates = if (stateValue is HomeScreenState.Success) stateValue.exchangeRates else return
+        val exchangeRates =
+            if (stateValue is HomeScreenState.Success) stateValue.exchangeRates else return
         val formState = formState.value
 
         if (formState.toAmount.isBlank()) {
@@ -153,13 +184,18 @@ class HomeViewModel @Inject constructor(
 
         val amount = when {
             formState.toCurrency.code != "USD" -> {
-                val usdRate = exchangeRates.find { it.targetCurrency.code == formState.toCurrency.code }?.rate ?: return
+                val usdRate =
+                    exchangeRates.find { it.targetCurrency.code == formState.toCurrency.code }?.rate
+                        ?: return
                 formState.toAmount.toDouble() / usdRate
             }
+
             else -> formState.toAmount.toDouble()
         }
 
-        val rate = exchangeRates.find { it.targetCurrency.code == formState.fromCurrency.code }?.rate ?: return
+        val rate =
+            exchangeRates.find { it.targetCurrency.code == formState.fromCurrency.code }?.rate
+                ?: return
         val resultAmount = amount * rate
         val roundedResult = floor(resultAmount * 100) / 100
 

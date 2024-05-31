@@ -1,28 +1,42 @@
 package org.dreamerslab.currencyconverter.ui.home
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,6 +45,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -43,6 +59,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.dreamerslab.currencyconverter.R
 import org.dreamerslab.currencyconverter.data.models.Currency
@@ -57,6 +74,8 @@ fun Home(
 ) {
     val formState by viewModel.formState.collectAsStateWithLifecycle()
     val screenState by viewModel.state.collectAsStateWithLifecycle()
+
+    var showFavoriteCurrenciesDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -77,6 +96,16 @@ fun Home(
                     }
                 }
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showFavoriteCurrenciesDialog = true },
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null
+                )
+            }
         }
     ) { paddingValues ->
         Column(
@@ -85,16 +114,46 @@ fun Home(
         ) {
             when (val state = screenState) {
                 HomeScreenState.Loading -> Unit
-                is HomeScreenState.Success -> CurrencyConverterForm(
-                    state = formState,
-                    supportedCurrencies = state.currencies,
-                    onEvent = { viewModel.onEvent(it) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                )
-            }
+                is HomeScreenState.Success -> {
+                    CurrencyConverterForm(
+                        state = formState,
+                        supportedCurrencies = state.currencies,
+                        onEvent = { viewModel.onEvent(it) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    )
 
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    FavoriteCurrenciesSheet(
+                        currencies = state.favorites,
+                        onDelete = { viewModel.onDeleteFavorite(it) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    )
+                }
+            }
+        }
+    }
+
+    if (showFavoriteCurrenciesDialog && screenState is HomeScreenState.Success) {
+        val currencies = (screenState as HomeScreenState.Success).currencies
+        Dialog(
+            onDismissRequest = { showFavoriteCurrenciesDialog = false }
+        ) {
+            CurrencyPickerDialog(
+                currencies = currencies,
+                onSelected = {
+                    viewModel.onAddFavorite(it)
+                    showFavoriteCurrenciesDialog = false
+                },
+                onDismiss = {
+                    showFavoriteCurrenciesDialog = false
+                },
+                modifier = Modifier.height(320.dp)
+            )
         }
     }
 }
@@ -283,6 +342,163 @@ fun CurrencyInputField(
             )
         )
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun FavoriteCurrenciesSheet(
+    currencies: List<Currency>,
+    onDelete: (Currency) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+        tonalElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            BottomSheetDefaults.DragHandle()
+
+            Text(
+                text = "Favorites",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(vertical = 16.dp)
+            ) {
+                items(
+                    items = currencies,
+                    key = { it.code.hashCode() }
+                ) {
+                    FavoriteCurrencyCard(
+                        currency = it,
+                        onDeleteClick = { onDelete(it) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateItemPlacement()
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FavoriteCurrencyCard(
+    currency: Currency,
+    onDeleteClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    SwipeToDeleteWrapper(
+        onSwiped = onDeleteClick,
+        modifier = modifier
+    ) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceColorAtElevation(5.dp),
+            shape = RoundedCornerShape(4.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(vertical = 8.dp, horizontal = 12.dp)
+            ) {
+                CurrencyFlag(
+                    flagUrl = currency.currencyFlagUrl,
+                    contentDescription = currency.code
+                )
+
+                Text(
+                    text = currency.code,
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Column(
+                    verticalArrangement = Arrangement.SpaceBetween,
+                    horizontalAlignment = Alignment.End,
+                ) {
+                    Text(
+                        text = "${currency.symbol} 0.0",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Text(
+                        text = "1 ${currency.code} = 0.0 USD",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SwipeToDeleteWrapper(
+    onSwiped: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = {
+            if (it == SwipeToDismissBoxValue.EndToStart || it == SwipeToDismissBoxValue.StartToEnd)
+                onSwiped()
+
+            true
+        },
+        positionalThreshold = { distance -> distance * 0.5f }
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            val alignment = when (dismissState.dismissDirection) {
+                SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
+                SwipeToDismissBoxValue.Settled -> Alignment.CenterStart
+            }
+
+            val scale by animateFloatAsState(
+                targetValue = when (dismissState.dismissDirection) {
+                    SwipeToDismissBoxValue.StartToEnd -> 1.2f
+                    SwipeToDismissBoxValue.EndToStart -> 1.2f
+                    SwipeToDismissBoxValue.Settled -> 0.8f
+                },
+                label = "Swipe to Dismiss Scale Animation"
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(MaterialTheme.colorScheme.error),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Remove Favorite",
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .align(alignment)
+                        .scale(scale),
+                    tint = MaterialTheme.colorScheme.onError
+                )
+            }
+        },
+        modifier = modifier,
+        content = { content() },
+    )
 }
 
 @MultiThemePreview

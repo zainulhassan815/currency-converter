@@ -12,6 +12,7 @@ compose-bom = "2024.05.00"
 google-gms-google-services = "4.4.1"
 firebase-bom = "33.0.0"
 hilt = "2.50"
+room = "2.6.1"
 
 [libraries]
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core-ktx" }
@@ -40,6 +41,10 @@ coil-compose = "io.coil-kt:coil-compose:2.6.0"
 
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase-bom" }
 firebase-database-ktx = { module = "com.google.firebase:firebase-database-ktx" }
+
+room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

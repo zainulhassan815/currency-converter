@@ -1,9 +1,16 @@
 package org.dreamerslab.currencyconverter.data.models
 
 import androidx.compose.runtime.Immutable
+import androidx.room.Entity
+import androidx.room.Ignore
+import androidx.room.PrimaryKey
 
 @Immutable
+@Entity(
+    tableName = "favorite_currencies"
+)
 data class Currency(
+    @PrimaryKey(autoGenerate = false)
     val code: String,
     val name: String,
     val symbol: String
@@ -20,6 +27,7 @@ data class Currency(
         }
     }
 
+    @Ignore
     val currencyFlagUrl: String = "https://flagcdn.com/w40/${code.take(2).lowercase()}.png"
 }
 
