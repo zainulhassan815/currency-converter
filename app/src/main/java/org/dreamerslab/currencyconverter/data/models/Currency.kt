@@ -25,6 +25,8 @@ data class Currency(
                 Result.failure(IllegalStateException())
             }
         }
+
+        val Empty = Currency("", "", "")
     }
 
     @Ignore

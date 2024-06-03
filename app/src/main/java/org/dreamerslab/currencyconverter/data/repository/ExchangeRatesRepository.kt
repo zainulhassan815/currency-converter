@@ -32,22 +32,27 @@ class ExchangeRatesRepository @Inject constructor(
         emit(currencies)
     }
 
-    val exchangeRatesFlow = callbackFlow {
+    val exchangeRatesFlow: Flow<HashMap<String, ExchangeRate>> = callbackFlow {
         val baseCurrency = Currency.fromCode("USD").getOrThrow()
         val ref = database.getReference("conversion_rates")
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val currencies = snapshot.children.mapNotNull {
-                    val code = it.key ?: return@mapNotNull null
-                    val currency = Currency.fromCode(code).getOrNull() ?: return@mapNotNull null
-                    val value = it.getValue<Double>() ?: return@mapNotNull null
-                    ExchangeRate(
-                        baseCurrency = baseCurrency,
-                        targetCurrency = currency,
-                        rate = value
-                    )
+                val exchangeRateMap = buildMap {
+                    snapshot.children.mapNotNull {
+                        val code = it.key ?: return@mapNotNull null
+                        val currency = Currency.fromCode(code).getOrNull() ?: return@mapNotNull null
+                        val value = it.getValue(Double::class.java) ?: return@mapNotNull null
+
+                        put(
+                            code, ExchangeRate(
+                                baseCurrency = baseCurrency,
+                                targetCurrency = currency,
+                                rate = value
+                            )
+                        )
+                    }
                 }
-                trySend(currencies)
+                trySend(HashMap(exchangeRateMap))
             }
 
             override fun onCancelled(error: DatabaseError) {

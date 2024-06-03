@@ -77,15 +77,14 @@ private fun CurrencyPickerContent(
     LaunchedEffect(currencies) {
         snapshotFlow { query }
             .debounce(300)
-            .mapLatest { it.lowercase().trim() }
             .distinctUntilChanged()
             .mapLatest {
                 currencies.filter { currency ->
-                    currency.name.contains(it, ignoreCase = true) ||
-                            currency.code.contains(it, ignoreCase = true)
+                    currency.name.contains(it.trim(), ignoreCase = true) ||
+                            currency.code.contains(it.trim(), ignoreCase = true)
                 }
             }
-            .flowOn(Dispatchers.IO)
+            .flowOn(Dispatchers.Default)
             .collectLatest { filteredCurrencies = it }
     }
 
@@ -107,8 +106,12 @@ private fun CurrencyPickerContent(
                         onValueChange = { query = it },
                         shape = RoundedCornerShape(4.dp),
                         colors = TextFieldDefaults.colors(
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(5.dp),
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(5.dp),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(
+                                5.dp
+                            ),
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(
+                                5.dp
+                            ),
                             unfocusedIndicatorColor = Color.Transparent,
                             focusedIndicatorColor = Color.Transparent,
                         ),

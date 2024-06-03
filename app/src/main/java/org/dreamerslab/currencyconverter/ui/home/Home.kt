@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -67,14 +68,40 @@ import org.dreamerslab.currencyconverter.ui.components.CurrencyFlag
 import org.dreamerslab.currencyconverter.ui.styles.CurrencyConverterTheme
 import org.dreamerslab.currencyconverter.ui.utils.MultiThemePreview
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Home(
     viewModel: HomeViewModel
 ) {
-    val formState by viewModel.formState.collectAsStateWithLifecycle()
-    val screenState by viewModel.state.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val formData by viewModel.formData.collectAsStateWithLifecycle()
 
+    when (val state = uiState) {
+        HomeScreenUiState.Loading -> HomeScreenLoading()
+        is HomeScreenUiState.Success -> HomeScreenContent(
+            state = state,
+            formData = formData,
+            onEvent = viewModel::handleEvent
+        )
+    }
+}
+
+@Composable
+fun HomeScreenLoading() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        CircularProgressIndicator()
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeScreenContent(
+    state: HomeScreenUiState.Success,
+    formData: FormData,
+    onEvent: (HomeScreenEvent) -> Unit,
+) {
     var showFavoriteCurrenciesDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -112,41 +139,35 @@ fun Home(
             modifier = Modifier.padding(paddingValues),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            when (val state = screenState) {
-                HomeScreenState.Loading -> Unit
-                is HomeScreenState.Success -> {
-                    CurrencyConverterForm(
-                        state = formState,
-                        supportedCurrencies = state.currencies,
-                        onEvent = { viewModel.onEvent(it) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    )
+            CurrencyConverterForm(
+                data = formData,
+                supportedCurrencies = state.currencies,
+                onEvent = onEvent,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-                    FavoriteCurrenciesSheet(
-                        currencies = state.favorites,
-                        onDelete = { viewModel.onDeleteFavorite(it) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                    )
-                }
-            }
+            FavoriteCurrenciesSheet(
+                currencies = state.favorites,
+                onDelete = { onEvent(FavoritesEvent.RemoveFavorite(it)) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            )
         }
     }
 
-    if (showFavoriteCurrenciesDialog && screenState is HomeScreenState.Success) {
-        val currencies = (screenState as HomeScreenState.Success).currencies
+    if (showFavoriteCurrenciesDialog) {
         Dialog(
             onDismissRequest = { showFavoriteCurrenciesDialog = false }
         ) {
             CurrencyPickerDialog(
-                currencies = currencies,
+                currencies = state.currencies,
                 onSelected = {
-                    viewModel.onAddFavorite(it)
+                    onEvent(FavoritesEvent.AddFavorite(it))
                     showFavoriteCurrenciesDialog = false
                 },
                 onDismiss = {
@@ -160,7 +181,7 @@ fun Home(
 
 @Composable
 fun CurrencyConverterForm(
-    state: FormState,
+    data: FormData,
     supportedCurrencies: List<Currency>,
     onEvent: (FormEvent) -> Unit,
     modifier: Modifier = Modifier,
@@ -184,7 +205,7 @@ fun CurrencyConverterForm(
                 showToCurrencyPicker = false
                 showFromCurrencyPicker = false
             },
-            selectedCurrency = state.fromCurrency,
+            selectedCurrency = data.fromCurrency,
             modifier = Modifier.height(320.dp)
         )
     }
@@ -199,8 +220,8 @@ fun CurrencyConverterForm(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             CurrencySelectionButton(
-                label = state.fromCurrency.code,
-                flagUrl = state.fromCurrency.currencyFlagUrl,
+                label = data.fromCurrency.code,
+                flagUrl = data.fromCurrency.currencyFlagUrl,
                 onClick = { showFromCurrencyPicker = true },
                 modifier = Modifier.weight(1f)
             )
@@ -211,24 +232,24 @@ fun CurrencyConverterForm(
             )
 
             CurrencySelectionButton(
-                label = state.toCurrency.code,
-                flagUrl = state.toCurrency.currencyFlagUrl,
+                label = data.toCurrency.code,
+                flagUrl = data.toCurrency.currencyFlagUrl,
                 onClick = { showToCurrencyPicker = true },
                 modifier = Modifier.weight(1f)
             )
         }
 
         CurrencyInputField(
-            value = state.fromAmount,
+            value = data.fromAmount,
             onChange = { onEvent(FormEvent.FromAmountChanged(it)) },
-            symbol = state.fromCurrency.symbol,
+            symbol = data.fromCurrency.symbol,
             modifier = Modifier.padding(top = 16.dp)
         )
 
         CurrencyInputField(
-            value = state.toAmount,
+            value = data.toAmount,
             onChange = { onEvent(FormEvent.ToAmountChanged(it)) },
-            symbol = state.toCurrency.symbol,
+            symbol = data.toCurrency.symbol,
             modifier = Modifier.padding(top = 16.dp)
         )
     }
@@ -347,7 +368,7 @@ fun CurrencyInputField(
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun FavoriteCurrenciesSheet(
-    currencies: List<Currency>,
+    currencies: List<CurrencyWithExchangeRate>,
     onDelete: (Currency) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -377,16 +398,18 @@ fun FavoriteCurrenciesSheet(
             ) {
                 items(
                     items = currencies,
-                    key = { it.code.hashCode() }
+                    key = { it.hashCode() }
                 ) {
                     FavoriteCurrencyCard(
                         currency = it,
-                        onDeleteClick = { onDelete(it) },
+                        onDeleteClick = { onDelete(it.favoriteCurrency) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .animateItemPlacement()
                     )
                 }
+
+                item { Spacer(modifier = Modifier.height(64.dp)) }
             }
         }
     }
@@ -394,7 +417,7 @@ fun FavoriteCurrenciesSheet(
 
 @Composable
 fun FavoriteCurrencyCard(
-    currency: Currency,
+    currency: CurrencyWithExchangeRate,
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -412,12 +435,12 @@ fun FavoriteCurrencyCard(
                 modifier = Modifier.padding(vertical = 8.dp, horizontal = 12.dp)
             ) {
                 CurrencyFlag(
-                    flagUrl = currency.currencyFlagUrl,
-                    contentDescription = currency.code
+                    flagUrl = currency.favoriteCurrency.currencyFlagUrl,
+                    contentDescription = currency.favoriteCurrency.code
                 )
 
                 Text(
-                    text = currency.code,
+                    text = currency.favoriteCurrency.code,
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.weight(1f),
                     color = MaterialTheme.colorScheme.onSurface
@@ -428,13 +451,13 @@ fun FavoriteCurrencyCard(
                     horizontalAlignment = Alignment.End,
                 ) {
                     Text(
-                        text = "${currency.symbol} 0.0",
+                        text = "${currency.favoriteCurrency.symbol} ${currency.resultAmount}",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
 
                     Text(
-                        text = "1 ${currency.code} = 0.0 USD",
+                        text = "1 ${currency.baseCurrency.code} = ${currency.exchangeRate} ${currency.favoriteCurrency.code}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -507,7 +530,7 @@ fun CurrencyConverterFormPreview() {
     CurrencyConverterTheme {
         Surface {
             CurrencyConverterForm(
-                state = FormState(
+                data = FormData(
                     fromCurrency = Currency("USD", "United States Dollar", "$"),
                     toCurrency = Currency("PKR", "Pakistani Rupees", "Rs")
                 ),
