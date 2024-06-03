@@ -1,9 +1,15 @@
 ![Currency Converter App Poster](./graphics/Poster.png)
 
 # Currency Converter
+
 A simple application developed with Kotlin and Compose UI to convert to multiple currencies at once.
 
+# Download APK
+
+- [GitHub](./app/release)
+
 ## Tech Stack
+
 - Kotlin
 - Compose UI
 - Firebase Database
