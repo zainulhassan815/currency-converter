@@ -95,6 +95,8 @@ dependencies {
     debugImplementation(libs.ui.tooling)
     debugImplementation(libs.ui.test.manifest)
 
+    implementation(libs.lottie.compose)
+
     implementation(libs.hilt.android)
     kapt(libs.hilt.compiler)
 
